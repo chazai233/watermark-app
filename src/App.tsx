@@ -3,7 +3,7 @@ import {
   Upload, X, Clock, Download, Plus, ZoomIn, ZoomOut,
   Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save
 } from 'lucide-react';
-import type { ImageFile, WatermarkConfig, CustomItem } from './types';
+import type { ImageFile, WatermarkConfig } from './types';
 import { processImageFile } from './utils/imageProcessor';
 import { generateWatermarkedImage } from './utils/watermarkGenerator';
 import { downloadBlob, delay } from './utils/exportHelper';
@@ -145,7 +145,7 @@ function PresetSelector({
 }
 
 // Convert custom time format to datetime-local input format (YYYY-MM-DDTHH:mm:ss)
-const formatTimeForInput = (timeStr: string, format: string): string => {
+const formatTimeForInput = (timeStr: string): string => {
   // Parse the time string and convert to datetime-local format
   const cleaned = timeStr.replace(/[年月日]/g, '-').replace(/\./g, '-').replace(/ /g, 'T');
   const parts = cleaned.split('T');
@@ -742,7 +742,7 @@ export default function WatermarkApp() {
                 </select>
                 <input
                   type={config.timeFormat.includes('HH:mm:ss') ? 'datetime-local' : 'datetime-local'}
-                  value={formatTimeForInput(config.customTime, config.timeFormat)}
+                  value={formatTimeForInput(config.customTime)}
                   onChange={e => setConfig({ ...config, customTime: formatTimeFromInput(e.target.value, config.timeFormat) })}
                   className="input-modern text-sm"
                   step={config.timeFormat.includes('ss') ? '1' : '60'}
