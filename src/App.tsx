@@ -182,6 +182,15 @@ export default function WatermarkApp() {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isExporting, setIsExporting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -367,8 +376,10 @@ export default function WatermarkApp() {
     reader.readAsDataURL(file);
   };
 
+
+
   const handleBatchExport = async () => {
-    if (checkedIds.size === 0) { alert('请至少选择一张图片'); return; }
+    if (checkedIds.size === 0) { showToast('请至少选择一张图片', 'error'); return; }
     setIsExporting(true);
     try {
       const imagesToExport = images.filter(img => checkedIds.has(img.id));
@@ -392,8 +403,8 @@ export default function WatermarkApp() {
         downloadBlob(blob, filename);
         await delay(300);
       }
-      alert(`成功导出 ${imagesToExport.length} 张图片！`);
-    } catch (error) { console.error('Export error:', error); alert('导出失败，请重试'); }
+      showToast(`成功导出 ${imagesToExport.length} 张图片！`, 'success');
+    } catch (error) { console.error('Export error:', error); showToast('导出失败，请重试', 'error'); }
     finally { setIsExporting(false); }
   };
 
@@ -407,6 +418,18 @@ export default function WatermarkApp() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 flex-col">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-xl text-white font-medium flex items-center gap-2 z-50 animate-fade-in-down ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+          }`}>
+          {toast.type === 'success' ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          )}
+          {toast.message}
+        </div>
+      )}
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
 
       {/* 顶部署名 - 融入式设计 */}
