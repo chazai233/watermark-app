@@ -64,7 +64,7 @@ const drawWatermark = async (
     // Apply scale to BOTH fontSize AND margin
     const fontSize = config.fontSize * config.scale;
     const lineHeight = fontSize * 1.4;
-    const margin = config.marginX * config.scale;  // THIS IS THE FIX
+    const margin = config.marginX;  // Removed config.scale to keep margin absolute
 
     // 设置字体样式
     ctx.font = `${fontSize}px ${config.fontFamily}`;

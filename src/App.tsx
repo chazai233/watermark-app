@@ -615,7 +615,7 @@ export default function WatermarkApp() {
                 <input
                   type="range"
                   min="0"
-                  max="100"
+                  max="300"
                   value={config.marginX}
                   onChange={e => setConfig({ ...config, marginX: parseInt(e.target.value), marginY: parseInt(e.target.value) })}
                 />
@@ -650,6 +650,16 @@ export default function WatermarkApp() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">颜色</label>
+                  <div className="flex items-center gap-2 mb-2">
+                    {['#FFFFFF', '#000000', '#FF0000', '#FFFF00', '#0000FF'].map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setConfig({ ...config, fontColor: color })}
+                        className={`w-6 h-6 rounded-full border border-slate-200 shadow-sm ${config.fontColor === color ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
                   <div className="relative">
                     <input
                       type="color"
@@ -732,7 +742,18 @@ export default function WatermarkApp() {
 
               {/* 拍摄时间 */}
               <div>
-                <label className="text-sm font-medium text-slate-700 mb-2 block">拍摄时间</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-slate-700">拍摄时间</label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.useExifTime}
+                      onChange={e => setConfig({ ...config, useExifTime: e.target.checked })}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-slate-500">使用原图时间</span>
+                  </label>
+                </div>
                 <select
                   value={config.timeFormat}
                   onChange={e => setConfig({ ...config, timeFormat: e.target.value })}
@@ -743,8 +764,12 @@ export default function WatermarkApp() {
                 <input
                   type={config.timeFormat.includes('HH:mm:ss') ? 'datetime-local' : 'datetime-local'}
                   value={formatTimeForInput(config.customTime)}
-                  onChange={e => setConfig({ ...config, customTime: formatTimeFromInput(e.target.value, config.timeFormat) })}
-                  className="input-modern text-sm"
+                  onChange={e => setConfig({
+                    ...config,
+                    customTime: formatTimeFromInput(e.target.value, config.timeFormat),
+                    useExifTime: false // 修改时间时自动关闭EXIF时间
+                  })}
+                  className={`input-modern text-sm ${config.useExifTime ? 'opacity-50' : ''}`}
                   step={config.timeFormat.includes('ss') ? '1' : '60'}
                 />
               </div>
@@ -848,10 +873,11 @@ function WatermarkLayer({ config, displayTime, imageWidth, previewWidth }: {
   // Calculate preview scale ratio
   const previewScale = previewWidth / imageWidth;
 
-  // Apply both config.scale and preview scale
+  // Apply config.scale ONLY to font size and logo, NOT to margin
+  // Margin should be absolute relative to image size
   const actualFontSize = config.fontSize * config.scale * previewScale;
-  const actualMarginX = config.marginX * config.scale * previewScale;
-  const actualMarginY = config.marginY * config.scale * previewScale;
+  const actualMarginX = config.marginX * previewScale; // Removed config.scale
+  const actualMarginY = config.marginY * previewScale; // Removed config.scale
   const actualLogoHeight = 40 * config.scale * previewScale;
 
   return (
