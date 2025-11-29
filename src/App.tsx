@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload, X, Clock, Download, Plus, ZoomIn, ZoomOut,
-  Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save
+  Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save,
+  AlignLeft, AlignCenter, AlignRight
 } from 'lucide-react';
 import type { ImageFile, WatermarkConfig } from './types';
 import { processImageFile } from './utils/imageProcessor';
@@ -636,14 +637,7 @@ export default function WatermarkApp() {
                   {['top-left', 'top-center', 'top-right', 'center-left', 'center', 'center-right', 'bottom-left', 'bottom-center', 'bottom-right'].map(pos => (
                     <button
                       key={pos}
-                      onClick={() => {
-                        let newTextAlign: 'left' | 'center' | 'right' = 'left';
-                        if (pos.includes('right')) newTextAlign = 'right';
-                        else if (pos.includes('center') && !pos.includes('left')) newTextAlign = 'center';
-                        else if (pos === 'center') newTextAlign = 'center';
-
-                        setConfig({ ...config, position: pos, textAlign: newTextAlign });
-                      }}
+                      onClick={() => setConfig({ ...config, position: pos })}
                       className={`h-10 rounded-lg border-2 transition-all flex items-center justify-center ${config.position === pos
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -655,14 +649,35 @@ export default function WatermarkApp() {
                 </div>
               </div>
 
-              {/* 字体和颜色 */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 mb-2 block">字体</label>
-                  <select value={config.fontFamily} onChange={e => setConfig({ ...config, fontFamily: e.target.value })} className="select-modern text-sm">
-                    {fontOptions.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
+              {/* 字体、颜色和对齐 */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">字体</label>
+                    <select value={config.fontFamily} onChange={e => setConfig({ ...config, fontFamily: e.target.value })} className="select-modern text-sm">
+                      {fontOptions.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">对齐</label>
+                    <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+                      {[
+                        { value: 'left', icon: <AlignLeft size={16} /> },
+                        { value: 'center', icon: <AlignCenter size={16} /> },
+                        { value: 'right', icon: <AlignRight size={16} /> },
+                      ].map(align => (
+                        <button
+                          key={align.value}
+                          onClick={() => setConfig({ ...config, textAlign: align.value as any })}
+                          className={`flex-1 h-8 rounded flex items-center justify-center transition-all ${config.textAlign === align.value ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          {align.icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">颜色</label>
                   <div className="flex items-center gap-2 mb-2">

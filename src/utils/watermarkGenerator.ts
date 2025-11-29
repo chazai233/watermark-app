@@ -79,49 +79,76 @@ const drawWatermark = async (
         ctx.shadowOffsetY = 1;
     }
 
-    // 计算总高度
-    const totalHeight = lines.length * lineHeight + (config.logo ? 50 * config.scale : 0);
+    // 计算最大宽度
+    let maxLineWidth = 0;
+    lines.forEach(line => {
+        const width = ctx.measureText(line.text).width;
+        if (width > maxLineWidth) maxLineWidth = width;
+    });
 
-    // 计算起始位置
-    let x = margin;
-    let y = margin;
+    // 计算Logo宽度并更新最大宽度
+    let logoWidth = 0;
+    let logoHeight = 0;
+    if (config.logo) {
+        try {
+            const logoImg = await loadImage(config.logo);
+            logoHeight = 40 * config.scale;
+            logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+            if (logoWidth > maxLineWidth) maxLineWidth = logoWidth;
+        } catch (e) {
+            console.error('Failed to load logo:', e);
+        }
+    }
+
+    // 计算总高度
+    const totalHeight = lines.length * lineHeight + (config.logo ? logoHeight + 10 * config.scale : 0);
+
+    // 计算水印块的左上角位置 (blockX, blockY)
+    let blockX = margin;
+    let blockY = margin;
 
     const pos = config.position;
 
+    // 水平位置
     if (pos.includes('right')) {
-        x = canvas.width - margin;
+        blockX = canvas.width - margin - maxLineWidth;
     } else if (pos.includes('center') && !pos.includes('left') && !pos.includes('right')) {
-        x = canvas.width / 2;
+        blockX = (canvas.width - maxLineWidth) / 2;
     }
 
+    // 垂直位置
     if (pos.includes('bottom')) {
-        y = canvas.height - margin - totalHeight;
+        blockY = canvas.height - margin - totalHeight;
     } else if (pos === 'center') {
-        y = (canvas.height - totalHeight) / 2;
+        blockY = (canvas.height - totalHeight) / 2;
     }
 
     // 绘制Logo
     if (config.logo) {
         try {
             const logoImg = await loadImage(config.logo);
-            const logoHeight = 40 * config.scale;
-            const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+            let logoX = blockX;
 
-            let logoX = x;
-            if (config.textAlign === 'center') logoX -= logoWidth / 2;
-            else if (config.textAlign === 'right') logoX -= logoWidth;
+            // Logo在块内对齐
+            if (config.textAlign === 'center') logoX = blockX + (maxLineWidth - logoWidth) / 2;
+            else if (config.textAlign === 'right') logoX = blockX + maxLineWidth - logoWidth;
 
-            ctx.drawImage(logoImg, logoX, y, logoWidth, logoHeight);
-            y += logoHeight + 10 * config.scale;
+            ctx.drawImage(logoImg, logoX, blockY, logoWidth, logoHeight);
+            blockY += logoHeight + 10 * config.scale;
         } catch (e) {
-            console.error('Failed to load logo:', e);
+            // Logo加载失败已在上面处理过
         }
     }
 
     // 绘制文字
     lines.forEach(line => {
+        let x = blockX;
+        // 文字在块内对齐
+        if (config.textAlign === 'center') x = blockX + maxLineWidth / 2;
+        else if (config.textAlign === 'right') x = blockX + maxLineWidth;
+
         ctx.textAlign = config.textAlign;
-        ctx.fillText(line.text, x, y);
-        y += lineHeight;
+        ctx.fillText(line.text, x, blockY);
+        blockY += lineHeight;
     });
 };
