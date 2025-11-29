@@ -375,11 +375,19 @@ export default function WatermarkApp() {
         const image = imagesToExport[i];
         const displayTime = config.useExifTime ? (image.exif.dateTime || '无EXIF数据') : config.customTime;
         const blob = await generateWatermarkedImage(image, config, displayTime);
-        const nameWithoutExt = image.name.replace(/\.[^/.]+$/, '');
+        let nameWithoutExt = image.name.replace(/\.[^/.]+$/, '');
+        if (!nameWithoutExt || nameWithoutExt.trim() === '') {
+          nameWithoutExt = `image_${i + 1}`;
+        }
+
         const ext = config.exportFormat === 'png' ? '.png'
           : config.exportFormat === 'webp' ? '.webp'
             : '.jpg';
-        const filename = sanitizeFilename(`${nameWithoutExt}_watermarked`) + ext;
+
+        // Sanitize the name part only, then append extension
+        const safeName = sanitizeFilename(`${nameWithoutExt}_watermarked`);
+        const filename = `${safeName}${ext}`;
+
         downloadBlob(blob, filename);
         await delay(300);
       }

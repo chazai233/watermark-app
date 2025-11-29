@@ -1,8 +1,11 @@
 export const downloadBlob = (blob: Blob, filename: string) => {
+    // Ensure filename is valid
+    const safeFilename = filename && filename.trim() !== '' ? filename : 'watermarked_image.jpg';
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = safeFilename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
