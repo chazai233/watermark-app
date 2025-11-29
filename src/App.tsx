@@ -636,7 +636,14 @@ export default function WatermarkApp() {
                   {['top-left', 'top-center', 'top-right', 'center-left', 'center', 'center-right', 'bottom-left', 'bottom-center', 'bottom-right'].map(pos => (
                     <button
                       key={pos}
-                      onClick={() => setConfig({ ...config, position: pos })}
+                      onClick={() => {
+                        let newTextAlign: 'left' | 'center' | 'right' = 'left';
+                        if (pos.includes('right')) newTextAlign = 'right';
+                        else if (pos.includes('center') && !pos.includes('left')) newTextAlign = 'center';
+                        else if (pos === 'center') newTextAlign = 'center';
+
+                        setConfig({ ...config, position: pos, textAlign: newTextAlign });
+                      }}
                       className={`h-10 rounded-lg border-2 transition-all flex items-center justify-center ${config.position === pos
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
