@@ -321,8 +321,8 @@ export default function WatermarkApp() {
 
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
 
-  const getDisplayTime = (): string => {
-    let raw = config.useExifTime ? (selectedImage?.exif.dateTime || '无EXIF数据') : config.customTime;
+  const getDisplayTime = (image: ImageFile | null = selectedImage): string => {
+    let raw = config.useExifTime ? (image?.exif.dateTime || '无EXIF数据') : config.customTime;
     if (config.timeFormat === 'YYYY-MM-DD HH:mm') {
       const parts = raw.split(' ');
       if (parts.length === 2) {
@@ -374,7 +374,7 @@ export default function WatermarkApp() {
       const imagesToExport = images.filter(img => checkedIds.has(img.id));
       for (let i = 0; i < imagesToExport.length; i++) {
         const image = imagesToExport[i];
-        const displayTime = config.useExifTime ? (image.exif.dateTime || '无EXIF数据') : config.customTime;
+        const displayTime = getDisplayTime(image);
         const blob = await generateWatermarkedImage(image, config, displayTime);
         let nameWithoutExt = image.name.replace(/\.[^/.]+$/, '');
         if (!nameWithoutExt || nameWithoutExt.trim() === '') {
@@ -557,8 +557,9 @@ export default function WatermarkApp() {
                 <img src={selectedImage.preview} className="w-full h-full object-cover rounded-xl select-none" alt="预览" />
                 <WatermarkLayer
                   config={config}
-                  displayTime={getDisplayTime()}
+                  displayTime={getDisplayTime(selectedImage)}
                   imageWidth={selectedImage.width}
+                  imageHeight={selectedImage.height}
                   previewWidth={selectedImage.width > selectedImage.height ? 700 : 500}
                 />
                 <div className="absolute border-2 border-dashed border-blue-400/40 pointer-events-none rounded-lg"
@@ -872,10 +873,11 @@ export default function WatermarkApp() {
 }
 
 // 水印层组件
-function WatermarkLayer({ config, displayTime, imageWidth, previewWidth }: {
+function WatermarkLayer({ config, displayTime, imageWidth, imageHeight, previewWidth }: {
   config: WatermarkConfig;
   displayTime: string;
   imageWidth: number;
+  imageHeight: number;
   previewWidth: number;
 }) {
   const getAbsolutePosition = (pos: string, marginX: number, marginY: number) => {
@@ -903,12 +905,17 @@ function WatermarkLayer({ config, displayTime, imageWidth, previewWidth }: {
   // Calculate preview scale ratio
   const previewScale = previewWidth / imageWidth;
 
+  // Calculate adaptive ratio (same as in watermarkGenerator)
+  const refSize = 1000;
+  const currentSize = Math.min(imageWidth, imageHeight);
+  const ratio = Math.max(0.5, currentSize / refSize);
+
   // Apply config.scale ONLY to font size and logo, NOT to margin
   // Margin should be absolute relative to image size
-  const actualFontSize = config.fontSize * config.scale * previewScale;
+  const actualFontSize = config.fontSize * config.scale * ratio * previewScale;
   const actualMarginX = config.marginX * previewScale; // Removed config.scale
   const actualMarginY = config.marginY * previewScale; // Removed config.scale
-  const actualLogoHeight = 40 * config.scale * previewScale;
+  const actualLogoHeight = 40 * config.scale * ratio * previewScale;
 
   return (
     <div

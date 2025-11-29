@@ -61,8 +61,13 @@ const drawWatermark = async (
     lines: WatermarkLine[],
     config: WatermarkConfig
 ) => {
+    // 计算自适应缩放比例 (以1000px为基准)
+    const refSize = 1000;
+    const currentSize = Math.min(canvas.width, canvas.height);
+    const ratio = Math.max(0.5, currentSize / refSize); // 限制最小缩放比为0.5，防止在极小图上太小
+
     // Apply scale to BOTH fontSize AND margin
-    const fontSize = config.fontSize * config.scale;
+    const fontSize = config.fontSize * config.scale * ratio;
     const lineHeight = fontSize * 1.4;
     const margin = config.marginX;  // Removed config.scale to keep margin absolute
 
@@ -92,7 +97,7 @@ const drawWatermark = async (
     if (config.logo) {
         try {
             const logoImg = await loadImage(config.logo);
-            logoHeight = 40 * config.scale;
+            logoHeight = 40 * config.scale * ratio;
             logoWidth = (logoImg.width / logoImg.height) * logoHeight;
             if (logoWidth > maxLineWidth) maxLineWidth = logoWidth;
         } catch (e) {
@@ -101,7 +106,7 @@ const drawWatermark = async (
     }
 
     // 计算总高度
-    const totalHeight = lines.length * lineHeight + (config.logo ? logoHeight + 10 * config.scale : 0);
+    const totalHeight = lines.length * lineHeight + (config.logo ? logoHeight + 10 * config.scale * ratio : 0);
 
     // 计算水印块的左上角位置 (blockX, blockY)
     let blockX = margin;
@@ -134,7 +139,7 @@ const drawWatermark = async (
             else if (config.textAlign === 'right') logoX = blockX + maxLineWidth - logoWidth;
 
             ctx.drawImage(logoImg, logoX, blockY, logoWidth, logoHeight);
-            blockY += logoHeight + 10 * config.scale;
+            blockY += logoHeight + 10 * config.scale * ratio;
         } catch (e) {
             // Logo加载失败已在上面处理过
         }
