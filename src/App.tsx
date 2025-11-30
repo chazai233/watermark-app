@@ -965,6 +965,7 @@ export default function WatermarkApp() {
                     onComplete={(c) => setCompletedCrop(c)}
                   >
                     <img
+                      ref={imgRef}
                       src={editingImage.preview}
                       alt={editingImage.name}
                       className="max-h-[60vh] shadow-lg"
