@@ -634,17 +634,30 @@ export default function WatermarkApp() {
     const img = images.find(i => i.id === editingImageId);
     if (!img) return;
 
+    // Calculate scale factors for crop
+    let scaledCrop = undefined;
+    if (completedCrop && imgRef.current) {
+      const imageElement = imgRef.current;
+      // Ensure we have valid dimensions to avoid division by zero
+      if (imageElement.width > 0 && imageElement.height > 0) {
+        const scaleX = imageElement.naturalWidth / imageElement.width;
+        const scaleY = imageElement.naturalHeight / imageElement.height;
+
+        scaledCrop = {
+          unit: 'px' as const,
+          x: completedCrop.x * scaleX,
+          y: completedCrop.y * scaleY,
+          width: completedCrop.width * scaleX,
+          height: completedCrop.height * scaleY
+        };
+      }
+    }
+
     const newEdits = {
       rotation: editState.rotation,
       flipH: editState.flipH,
       flipV: editState.flipV,
-      crop: completedCrop ? {
-        unit: 'px' as const,
-        x: completedCrop.x,
-        y: completedCrop.y,
-        width: completedCrop.width,
-        height: completedCrop.height
-      } : undefined,
+      crop: scaledCrop,
       drawings: drawings,
     };
 
