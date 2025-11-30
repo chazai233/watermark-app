@@ -209,6 +209,18 @@ export default function WatermarkApp() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm });
+  };
+
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isExporting, setIsExporting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -414,6 +426,22 @@ export default function WatermarkApp() {
     else setCheckedIds(new Set(images.map(img => img.id)));
   };
 
+  const handleDeleteChecked = () => {
+    if (checkedIds.size === 0) return;
+    showConfirm(
+      '删除图片',
+      `确定要删除选中的 ${checkedIds.size} 张图片吗？`,
+      () => {
+        setImages(prev => prev.filter(img => !checkedIds.has(img.id)));
+        if (selectedId && checkedIds.has(selectedId)) {
+          setSelectedId(null);
+        }
+        setCheckedIds(new Set());
+        showToast('已删除图片');
+      }
+    );
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -454,13 +482,7 @@ export default function WatermarkApp() {
     finally { setIsExporting(false); }
   };
 
-  const handleDeleteChecked = () => {
-    if (checkedIds.size === 0) return;
-    if (!confirm(`确定要删除选中的 ${checkedIds.size} 张图片吗？`)) return;
-    setImages(prev => prev.filter(img => !checkedIds.has(img.id)));
-    setCheckedIds(new Set());
-    if (selectedId && checkedIds.has(selectedId)) setSelectedId(null);
-  };
+
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 flex-col">
@@ -476,6 +498,34 @@ export default function WatermarkApp() {
           {toast.message}
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">{confirmDialog.title}</h3>
+            <p className="text-slate-600 mb-6">{confirmDialog.message}</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog({ ...confirmDialog, isOpen: false });
+                }}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium transition-colors"
+              >
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
 
       {/* 顶部署名 - 融入式设计 */}
