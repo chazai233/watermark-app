@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload, X, Clock, Download, Plus, ZoomIn, ZoomOut,
   Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save,
-  AlignLeft, AlignCenter, AlignRight
+  AlignLeft, AlignCenter, AlignRight//, Crop as CropIcon, RotateCw, RotateCcw,
+  //FlipHorizontal, FlipVertical, PenTool, Square, Circle as CircleIcon, Move, Undo
 } from 'lucide-react';
-import type { ImageFile, WatermarkConfig } from './types';
+//import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+//import 'react-image-crop/dist/ReactCrop.css';
+import type { ImageFile, WatermarkConfig/*, Drawing, DrawingTool*/ } from './types';
 import { processImageFile } from './utils/imageProcessor';
 import { generateWatermarkedImage } from './utils/watermarkGenerator';
 import { downloadBlob, delay } from './utils/exportHelper';
@@ -27,24 +30,24 @@ const timeFormats = [
 
 // 默认预设
 const DEFAULT_AREA_PRESETS = [
-  '一期工程-基坑A区',
-  '一期工程-基坑B区',
-  '二期工程-基坑A区',
-  '二期工程-基坑B区',
-  '三期工程-主体结构区',
-  '地下室施工区',
-  '主楼施工区',
+  '右岸R10道路',
+  '右岸沿线道路',
+  '右岸120拌合站',
+  '右岸240拌合站',
+  '右岸砂石系统',
+  '右岸炸药库',
+  '右岸1#渣场',
+  '右岸2#渣场',
 ];
 
 const DEFAULT_CONTENT_PRESETS = [
-  '土方开挖与支护作业',
-  '钢筋绑扎作业',
-  '混凝土浇筑作业',
-  '模板安装作业',
-  '脚手架搭设作业',
-  '基坑支护施工',
-  '地基处理施工',
-  '防水施工作业',
+  '毛路开挖',
+  '道路扩挖',
+  '土方开挖',
+  '土方回填',
+  '坡度调整',
+  '钢筋绑扎',
+  '基础开挖',
 ];
 
 // PresetSelector组件
@@ -53,6 +56,7 @@ function PresetSelector({
   onChange,
   presets,
   onSavePreset,
+  onDeletePreset,
   placeholder,
   isTextarea = false,
 }: {
@@ -60,6 +64,7 @@ function PresetSelector({
   onChange: (value: string) => void;
   presets: string[];
   onSavePreset: (value: string) => void;
+  onDeletePreset: (value: string) => void;
   placeholder: string;
   isTextarea?: boolean;
 }) {
@@ -79,7 +84,6 @@ function PresetSelector({
   const handleSave = () => {
     if (value.trim()) {
       onSavePreset(value.trim());
-      alert('已保存到预设！');
     }
   };
 
@@ -130,13 +134,27 @@ function PresetSelector({
           {presets.map((preset, index) => (
             <div
               key={index}
-              onClick={() => {
-                onChange(preset);
-                setShowDropdown(false);
-              }}
-              className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors text-sm text-slate-700 border-b border-slate-100 last:border-b-0"
+              className="px-4 py-2.5 hover:bg-blue-50 transition-colors text-sm text-slate-700 border-b border-slate-100 last:border-b-0 flex items-center justify-between group"
             >
-              {preset}
+              <span
+                onClick={() => {
+                  onChange(preset);
+                  setShowDropdown(false);
+                }}
+                className="flex-1 cursor-pointer"
+              >
+                {preset}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeletePreset(preset);
+                }}
+                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity p-1"
+                title="删除预设"
+              >
+                <X size={14} />
+              </button>
             </div>
           ))}
         </div>
@@ -258,6 +276,7 @@ export default function WatermarkApp() {
       const newPresets = [...areaPresets, value];
       setAreaPresets(newPresets);
       savePresetsToStorage(newPresets, contentPresets);
+      showToast('已保存到预设！');
     }
   };
 
@@ -267,7 +286,34 @@ export default function WatermarkApp() {
       const newPresets = [...contentPresets, value];
       setContentPresets(newPresets);
       savePresetsToStorage(areaPresets, newPresets);
+      showToast('已保存到预设！');
     }
+  };
+
+  // 删除区域预设
+  const deleteAreaPreset = (value: string) => {
+    // 不允许删除默认预设
+    if (DEFAULT_AREA_PRESETS.includes(value)) {
+      showToast('默认预设不可删除', 'error');
+      return;
+    }
+    const newPresets = areaPresets.filter(p => p !== value);
+    setAreaPresets(newPresets);
+    savePresetsToStorage(newPresets, contentPresets);
+    showToast('预设已删除');
+  };
+
+  // 删除内容预设
+  const deleteContentPreset = (value: string) => {
+    // 不允许删除默认预设
+    if (DEFAULT_CONTENT_PRESETS.includes(value)) {
+      showToast('默认预设不可删除', 'error');
+      return;
+    }
+    const newPresets = contentPresets.filter(p => p !== value);
+    setContentPresets(newPresets);
+    savePresetsToStorage(areaPresets, newPresets);
+    showToast('预设已删除');
   };
 
 
@@ -777,6 +823,7 @@ export default function WatermarkApp() {
                   onChange={value => setConfig({ ...config, area: value })}
                   presets={areaPresets}
                   onSavePreset={addAreaPreset}
+                  onDeletePreset={deleteAreaPreset}
                   placeholder="例如：二期工程-基坑A区"
                 />
               </div>
@@ -789,6 +836,7 @@ export default function WatermarkApp() {
                   onChange={value => setConfig({ ...config, content: value })}
                   presets={contentPresets}
                   onSavePreset={addContentPreset}
+                  onDeletePreset={deleteContentPreset}
                   placeholder="例如：土方开挖与支护作业"
                   isTextarea={true}
                 />

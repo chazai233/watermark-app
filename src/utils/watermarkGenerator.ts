@@ -1,5 +1,6 @@
 import type { WatermarkConfig, ImageFile } from '../types';
 import { loadImage, createCanvas } from './imageProcessor';
+import { applyImageEdits } from './imageEditor';
 
 interface WatermarkLine {
     text: string;
@@ -11,15 +12,24 @@ export const generateWatermarkedImage = async (
     config: WatermarkConfig,
     displayTime: string
 ): Promise<Blob> => {
-    // 加载原图
-    const img = await loadImage(imageFile.preview);
+    // 应用图片编辑（如果有）
+    let sourceCanvas: HTMLCanvasElement;
+    if (imageFile.edits) {
+        sourceCanvas = await applyImageEdits(imageFile.preview, imageFile.edits);
+    } else {
+        // 加载原图
+        const img = await loadImage(imageFile.preview);
+        sourceCanvas = createCanvas(img.width, img.height);
+        const tempCtx = sourceCanvas.getContext('2d')!;
+        tempCtx.drawImage(img, 0, 0);
+    }
 
-    // 创建canvas
-    const canvas = createCanvas(imageFile.width, imageFile.height);
+    // 创建最终canvas
+    const canvas = createCanvas(sourceCanvas.width, sourceCanvas.height);
     const ctx = canvas.getContext('2d')!;
 
-    // 绘制原图
-    ctx.drawImage(img, 0, 0, imageFile.width, imageFile.height);
+    // 绘制编辑后的图片
+    ctx.drawImage(sourceCanvas, 0, 0);
 
     // 准备水印内容
     const lines: WatermarkLine[] = [];

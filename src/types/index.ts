@@ -8,6 +8,34 @@ export interface ExifData {
     [key: string]: any;
 }
 
+// 绘图工具类型
+export type DrawingTool = 'pen' | 'arrow' | 'rect' | 'circle';
+
+// 绘图对象
+export interface Drawing {
+    tool: DrawingTool;
+    points: { x: number; y: number }[];  // 用于 pen
+    start?: { x: number; y: number };    // 用于形状
+    end?: { x: number; y: number };      // 用于形状
+    color: string;
+    width: number;
+}
+
+// 图片编辑状态
+export interface ImageEditState {
+    rotation: number;        // 旋转角度：0, 90, 180, 270
+    flipH: boolean;          // 水平翻转
+    flipV: boolean;          // 垂直翻转
+    crop?: {                 // 裁剪区域（像素坐标）
+        unit: 'px';
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+    drawings: Drawing[];     // 涂鸦和标注
+}
+
 export interface ImageFile {
     id: number;
     file: File;
@@ -16,6 +44,7 @@ export interface ImageFile {
     width: number;
     height: number;
     exif: ExifData;
+    edits?: ImageEditState;  // 编辑状态
 }
 
 export interface CustomItem {
