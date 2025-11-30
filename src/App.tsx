@@ -727,7 +727,7 @@ export default function WatermarkApp() {
                 <div
                   key={img.id}
                   onClick={() => setSelectedId(img.id)}
-                  className={`card card-interactive flex items-center gap-3 p-3 ${selectedId === img.id ? 'active' : ''}`}
+                  className={`card card-interactive flex items-center gap-3 p-3 group ${selectedId === img.id ? 'active' : ''}`}
                 >
                   <div onClick={e => e.stopPropagation()}>
                     <input
