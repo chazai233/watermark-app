@@ -582,86 +582,86 @@ export default function WatermarkApp() {
         if (!editingImage) return null;
 
         return (
-          <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
-            {/* Editor Header */}
-            <div className="h-16 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0">
-              <h2 className="text-lg font-bold text-white">编辑图片</h2>
-              <div className="flex gap-3">
-                <button
-                  onClick={cancelEditing}
-                  className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-medium transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={saveEdits}
-                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors flex items-center gap-2"
-                >
-                  <Save size={16} />
-                  保存
-                </button>
-              </div>
-            </div>
-
-            {/* Editor Toolbar */}
-            <div className="h-16 bg-slate-800 border-b border-slate-700 flex items-center px-6 gap-6 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-400 font-medium">旋转:</span>
-                <button
-                  onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
-                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-                  title="向左旋转90°"
-                >
-                  <RotateCcw size={18} />
-                </button>
-                <button
-                  onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
-                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-                  title="向右旋转90°"
-                >
-                  <RotateCw size={18} />
-                </button>
-                <span className="text-sm text-slate-300 ml-2">{editState.rotation}°</span>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={cancelEditing}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              {/* Editor Header */}
+              <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+                <h2 className="text-lg font-bold text-slate-900">编辑图片</h2>
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelEditing}
+                    className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={saveEdits}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Save size={16} />
+                    保存
+                  </button>
+                </div>
               </div>
 
-              <div className="w-px h-8 bg-slate-700"></div>
+              {/* Editor Toolbar */}
+              <div className="border-b border-slate-200 flex items-center px-6 py-4 gap-6 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-600 font-medium">旋转:</span>
+                  <button
+                    onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    title="向左旋转90°"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
+                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                    title="向右旋转90°"
+                  >
+                    <RotateCw size={18} />
+                  </button>
+                  <span className="text-sm text-slate-500 ml-2">{editState.rotation}°</span>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-400 font-medium">翻转:</span>
-                <button
-                  onClick={() => setEditState(prev => ({ ...prev, flipH: !prev.flipH }))}
-                  className={`p-2 rounded-lg transition-colors ${editState.flipH ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
-                  title="水平翻转"
-                >
-                  <FlipHorizontal size={18} />
-                </button>
-                <button
-                  onClick={() => setEditState(prev => ({ ...prev, flipV: !prev.flipV }))}
-                  className={`p-2 rounded-lg transition-colors ${editState.flipV ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
-                  title="垂直翻转"
-                >
-                  <FlipVertical size={18} />
-                </button>
+                <div className="w-px h-8 bg-slate-300"></div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-600 font-medium">翻转:</span>
+                  <button
+                    onClick={() => setEditState(prev => ({ ...prev, flipH: !prev.flipH }))}
+                    className={`p-2 rounded-lg transition-colors ${editState.flipH ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                    title="水平翻转"
+                  >
+                    <FlipHorizontal size={18} />
+                  </button>
+                  <button
+                    onClick={() => setEditState(prev => ({ ...prev, flipV: !prev.flipV }))}
+                    className={`p-2 rounded-lg transition-colors ${editState.flipV ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                    title="垂直翻转"
+                  >
+                    <FlipVertical size={18} />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Editor Canvas */}
-            <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
-              <div
-                className="relative"
-                style={{
-                  transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
-                  transition: 'transform 0.3s ease',
-                  maxWidth: '90%',
-                  maxHeight: '90%',
-                }}
-              >
-                <img
-                  ref={imgRef}
-                  src={editingImage.preview}
-                  alt={editingImage.name}
-                  className="max-w-full max-h-full object-contain shadow-2xl"
-                />
+              {/* Editor Canvas */}
+              <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-slate-50">
+                <div
+                  className="relative"
+                  style={{
+                    transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
+                    transition: 'transform 0.3s ease',
+                  }}
+                >
+                  <img
+                    ref={imgRef}
+                    src={editingImage.preview}
+                    alt={editingImage.name}
+                    className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-lg"
+                  />
+                </div>
               </div>
             </div>
           </div>
