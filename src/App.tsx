@@ -476,15 +476,9 @@ export default function WatermarkApp() {
     setEditingImageId(id);
     setEditMode('transform');
 
-    // Load existing crop if any
-    if (img.edits?.crop) {
-      const loadedCrop = { ...img.edits.crop, unit: 'px' as const };
-      setCrop(loadedCrop);
-      setCompletedCrop(loadedCrop);
-    } else {
-      setCrop(undefined);
-      setCompletedCrop(undefined);
-    }
+    // Reset crop state - it will be initialized in handleImageLoad when image loads
+    setCrop(undefined);
+    setCompletedCrop(undefined);
 
     setEditState({
       rotation: img.edits?.rotation || 0,
@@ -505,6 +499,30 @@ export default function WatermarkApp() {
     setEditState({ rotation: 0, flipH: false, flipV: false });
     setDrawings([]);
     setCurrentDrawing(null);
+  };
+
+  // Initialize crop when editor image loads
+  const handleEditorImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height, naturalWidth, naturalHeight } = e.currentTarget;
+    const img = images.find(i => i.id === editingImageId);
+
+    // Only initialize if we have a saved crop and current crop is undefined
+    // This prevents overwriting if the user is currently editing
+    if (img?.edits?.crop && !crop) {
+      const scaleX = width / naturalWidth;
+      const scaleY = height / naturalHeight;
+
+      const displayCrop = {
+        unit: 'px' as const,
+        x: img.edits.crop.x * scaleX,
+        y: img.edits.crop.y * scaleY,
+        width: img.edits.crop.width * scaleX,
+        height: img.edits.crop.height * scaleY
+      };
+
+      setCrop(displayCrop);
+      setCompletedCrop(displayCrop);
+    }
   };
 
   // Drawing functions
@@ -945,7 +963,8 @@ export default function WatermarkApp() {
                       ref={imgRef}
                       src={editingImage.preview}
                       alt={editingImage.name}
-                      className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-lg"
+                      onLoad={handleEditorImageLoad}
+                      className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-lg block"
                     />
                     {/* Drawing Canvas Overlay */}
                     {editMode === 'draw' && (
@@ -969,6 +988,7 @@ export default function WatermarkApp() {
                       ref={imgRef}
                       src={editingImage.preview}
                       alt={editingImage.name}
+                      onLoad={handleEditorImageLoad}
                       className="max-h-[60vh] shadow-lg"
                     />
                   </ReactCrop>
@@ -1452,7 +1472,7 @@ export default function WatermarkApp() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
