@@ -12,6 +12,7 @@ import { processImageFile } from './utils/imageProcessor';
 import { generateWatermarkedImage } from './utils/watermarkGenerator';
 import { downloadBlob, delay } from './utils/exportHelper';
 import { sanitizeFilename } from './utils/renameHelper';
+import { applyImageEdits } from './utils/imageEditor';
 
 const fontOptions = [
   { label: '思源黑体', value: '"Noto Sans SC", sans-serif' },
@@ -627,31 +628,58 @@ export default function WatermarkApp() {
 
   }, [drawings, currentDrawing, editMode, editingImageId]);
 
-  const saveEdits = () => {
+  const saveEdits = async () => {
     if (editingImageId === null) return;
-    setImages(prev => prev.map(img => {
-      if (img.id === editingImageId) {
-        return {
-          ...img,
-          edits: {
-            rotation: editState.rotation,
-            flipH: editState.flipH,
-            flipV: editState.flipV,
-            crop: completedCrop ? {
-              unit: 'px',
-              x: completedCrop.x,
-              y: completedCrop.y,
-              width: completedCrop.width,
-              height: completedCrop.height
-            } : undefined,
-            drawings: drawings,
+
+    const img = images.find(i => i.id === editingImageId);
+    if (!img) return;
+
+    const newEdits = {
+      rotation: editState.rotation,
+      flipH: editState.flipH,
+      flipV: editState.flipV,
+      crop: completedCrop ? {
+        unit: 'px' as const,
+        x: completedCrop.x,
+        y: completedCrop.y,
+        width: completedCrop.width,
+        height: completedCrop.height
+      } : undefined,
+      drawings: drawings,
+    };
+
+    try {
+      // Use original preview if available, otherwise current preview
+      const sourcePreview = img.originalPreview || img.preview;
+      const canvas = await applyImageEdits(sourcePreview, newEdits);
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          showToast('保存失败：无法生成图片', 'error');
+          return;
+        }
+
+        const newPreviewUrl = URL.createObjectURL(blob);
+
+        setImages(prev => prev.map(prevImg => {
+          if (prevImg.id === editingImageId) {
+            return {
+              ...prevImg,
+              preview: newPreviewUrl,
+              originalPreview: prevImg.originalPreview || prevImg.preview, // Save original if not exists
+              edits: newEdits
+            };
           }
-        };
-      }
-      return img;
-    }));
-    setEditingImageId(null);
-    showToast('编辑已保存');
+          return prevImg;
+        }));
+
+        setEditingImageId(null);
+        showToast('图片编辑已保存');
+      }, 'image/jpeg', 0.95);
+    } catch (error) {
+      console.error('Failed to save edits:', error);
+      showToast('保存失败', 'error');
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -740,8 +768,14 @@ export default function WatermarkApp() {
 
       {/* Image Editor Modal */}
       {editingImageId !== null && (() => {
-        const editingImage = images.find(img => img.id === editingImageId);
-        if (!editingImage) return null;
+        const editingImageRaw = images.find(img => img.id === editingImageId);
+        if (!editingImageRaw) return null;
+
+        // Use original preview for editing base to avoid stacking edits
+        const editingImage = {
+          ...editingImageRaw,
+          preview: editingImageRaw.originalPreview || editingImageRaw.preview
+        };
 
         return (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={cancelEditing}>

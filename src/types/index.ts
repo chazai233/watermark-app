@@ -45,6 +45,7 @@ export interface ImageFile {
     height: number;
     exif: ExifData;
     edits?: ImageEditState;  // 编辑状态
+    originalPreview?: string; // 原始图片预览（用于编辑回退）
 }
 
 export interface CustomItem {
