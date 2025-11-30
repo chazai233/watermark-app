@@ -42,14 +42,18 @@ export async function applyImageEdits(
                 tempCtx.rotate((edits.rotation * Math.PI) / 180);
                 tempCtx.scale(edits.flipH ? -1 : 1, edits.flipV ? -1 : 1);
                 tempCtx.drawImage(img, -img.width / 2, -img.height / 2);
-                tempCtx.restore();
 
                 // 应用涂鸦和标注
+                // 涂鸦坐标是基于原图的，所以需要应用相同的变换
+                // 但因为 drawImage 使用了中心偏移，我们需要将坐标系移回左上角
                 if (edits.drawings && edits.drawings.length > 0) {
+                    tempCtx.translate(-img.width / 2, -img.height / 2);
                     edits.drawings.forEach(drawing => {
                         drawDrawing(tempCtx, drawing);
                     });
                 }
+
+                tempCtx.restore();
 
                 // 应用裁剪
                 if (edits.crop) {

@@ -512,13 +512,14 @@ export default function WatermarkApp() {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    // Use offsetX/Y which are relative to the target element (canvas)
+    // This correctly handles CSS transforms (rotation/flip) on the parent
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
 
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
+      x: e.nativeEvent.offsetX * scaleX,
+      y: e.nativeEvent.offsetY * scaleY
     };
   };
 
@@ -934,7 +935,7 @@ export default function WatermarkApp() {
               <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-slate-50">
                 {editMode !== 'crop' ? (
                   <div
-                    className="relative"
+                    className="relative inline-block"
                     style={{
                       transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
                       transition: 'transform 0.3s ease',
