@@ -3,11 +3,11 @@ import {
   Upload, X, Clock, Download, Plus, ZoomIn, ZoomOut,
   Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save,
   AlignLeft, AlignCenter, AlignRight, Crop as CropIcon, RotateCw, RotateCcw,
-  FlipHorizontal, FlipVertical//, PenTool, Square, Circle as CircleIcon, Move, Undo
+  FlipHorizontal, FlipVertical, PenTool, Square, Circle as CircleIcon, Move, Undo
 } from 'lucide-react';
-// import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-// import 'react-image-crop/dist/ReactCrop.css';
-import type { ImageFile, WatermarkConfig/*, Drawing, DrawingTool*/ } from './types';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import type { ImageFile, WatermarkConfig, Drawing, DrawingTool } from './types';
 import { processImageFile } from './utils/imageProcessor';
 import { generateWatermarkedImage } from './utils/watermarkGenerator';
 import { downloadBlob, delay } from './utils/exportHelper';
@@ -229,9 +229,21 @@ export default function WatermarkApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Image editing state
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
+  const [editMode, setEditMode] = useState<'transform' | 'crop' | 'draw'>('transform');
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+
+  // Drawing state
+  const [currentTool, setCurrentTool] = useState<DrawingTool>('pen');
+  const [currentColor, setCurrentColor] = useState('#ef4444'); // red-500
+  const [lineWidth, setLineWidth] = useState(4);
+  const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [currentDrawing, setCurrentDrawing] = useState<Drawing | null>(null);
+
   const [editState, setEditState] = useState<{
     rotation: number;
     flipH: boolean;
@@ -456,21 +468,164 @@ export default function WatermarkApp() {
   };
 
   // Image editing functions
+  // Image editing functions
   const startEditing = (id: number) => {
     const img = images.find(i => i.id === id);
     if (!img) return;
     setEditingImageId(id);
+    setEditMode('transform');
+
+    // Load existing crop if any
+    if (img.edits?.crop) {
+      const loadedCrop = { ...img.edits.crop, unit: 'px' as const };
+      setCrop(loadedCrop);
+      setCompletedCrop(loadedCrop);
+    } else {
+      setCrop(undefined);
+      setCompletedCrop(undefined);
+    }
+
     setEditState({
       rotation: img.edits?.rotation || 0,
       flipH: img.edits?.flipH || false,
       flipV: img.edits?.flipV || false,
     });
+    setDrawings(img.edits?.drawings || []);
+    setCurrentTool('pen');
+    setCurrentColor('#ef4444');
+    setLineWidth(4);
   };
 
   const cancelEditing = () => {
     setEditingImageId(null);
+    setEditMode('transform');
+    setCrop(undefined);
+    setCompletedCrop(undefined);
     setEditState({ rotation: 0, flipH: false, flipV: false });
+    setDrawings([]);
+    setCurrentDrawing(null);
   };
+
+  // Drawing functions
+  const getCanvasCoordinates = (e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  };
+
+  const startDrawing = (e: React.MouseEvent) => {
+    if (editMode !== 'draw') return;
+    const { x, y } = getCanvasCoordinates(e);
+
+    setCurrentDrawing({
+      tool: currentTool,
+      points: [{ x, y }],
+      start: { x, y },
+      end: { x, y },
+      color: currentColor,
+      width: lineWidth
+    });
+  };
+
+  const draw = (e: React.MouseEvent) => {
+    if (!currentDrawing || editMode !== 'draw') return;
+    const { x, y } = getCanvasCoordinates(e);
+
+    if (currentTool === 'pen') {
+      setCurrentDrawing(prev => prev ? ({
+        ...prev,
+        points: [...prev.points, { x, y }]
+      }) : null);
+    } else {
+      setCurrentDrawing(prev => prev ? ({
+        ...prev,
+        end: { x, y }
+      }) : null);
+    }
+  };
+
+  const stopDrawing = () => {
+    if (currentDrawing) {
+      setDrawings(prev => [...prev, currentDrawing]);
+      setCurrentDrawing(null);
+    }
+  };
+
+  // Render drawings on canvas
+  useEffect(() => {
+    if (editMode !== 'draw' || !canvasRef.current || !imgRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Match canvas size to image natural size
+    if (imgRef.current.naturalWidth) {
+      canvas.width = imgRef.current.naturalWidth;
+      canvas.height = imgRef.current.naturalHeight;
+    }
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Helper to draw a single shape
+    const drawShape = (d: Drawing) => {
+      ctx.beginPath();
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = d.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (d.tool === 'pen') {
+        if (d.points.length > 0) {
+          ctx.moveTo(d.points[0].x, d.points[0].y);
+          d.points.forEach(p => ctx.lineTo(p.x, p.y));
+        }
+      } else if (d.tool === 'arrow' && d.start && d.end) {
+        // Draw arrow line
+        ctx.moveTo(d.start.x, d.start.y);
+        ctx.lineTo(d.end.x, d.end.y);
+        ctx.stroke();
+
+        // Draw arrow head
+        const headLength = d.width * 4;
+        const angle = Math.atan2(d.end.y - d.start.y, d.end.x - d.start.x);
+
+        ctx.beginPath();
+        ctx.moveTo(d.end.x, d.end.y);
+        ctx.lineTo(d.end.x - headLength * Math.cos(angle - Math.PI / 6), d.end.y - headLength * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(d.end.x, d.end.y);
+        ctx.lineTo(d.end.x - headLength * Math.cos(angle + Math.PI / 6), d.end.y - headLength * Math.sin(angle + Math.PI / 6));
+      } else if (d.tool === 'rect' && d.start && d.end) {
+        ctx.rect(d.start.x, d.start.y, d.end.x - d.start.x, d.end.y - d.start.y);
+      } else if (d.tool === 'circle' && d.start && d.end) {
+        const radiusX = Math.abs(d.end.x - d.start.x) / 2;
+        const radiusY = Math.abs(d.end.y - d.start.y) / 2;
+        const centerX = Math.min(d.start.x, d.end.x) + radiusX;
+        const centerY = Math.min(d.start.y, d.end.y) + radiusY;
+        ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+      }
+
+      ctx.stroke();
+    };
+
+    // Draw saved drawings
+    drawings.forEach(drawShape);
+
+    // Draw current drawing
+    if (currentDrawing) {
+      drawShape(currentDrawing);
+    }
+
+  }, [drawings, currentDrawing, editMode, editingImageId]);
 
   const saveEdits = () => {
     if (editingImageId === null) return;
@@ -482,7 +637,14 @@ export default function WatermarkApp() {
             rotation: editState.rotation,
             flipH: editState.flipH,
             flipV: editState.flipV,
-            drawings: img.edits?.drawings || [],
+            crop: completedCrop ? {
+              unit: 'px',
+              x: completedCrop.x,
+              y: completedCrop.y,
+              width: completedCrop.width,
+              height: completedCrop.height
+            } : undefined,
+            drawings: drawings,
           }
         };
       }
@@ -606,62 +768,162 @@ export default function WatermarkApp() {
 
               {/* Editor Toolbar */}
               <div className="border-b border-slate-200 flex items-center px-6 py-4 gap-6 shrink-0">
+                {/* Mode Toggle */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-600 font-medium">旋转:</span>
                   <button
-                    onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                    title="向左旋转90°"
+                    onClick={() => setEditMode('transform')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editMode === 'transform' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                   >
-                    <RotateCcw size={18} />
+                    变换
                   </button>
                   <button
-                    onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
-                    className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-                    title="向右旋转90°"
+                    onClick={() => setEditMode('crop')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editMode === 'crop' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
                   >
-                    <RotateCw size={18} />
+                    裁剪
                   </button>
-                  <span className="text-sm text-slate-500 ml-2">{editState.rotation}°</span>
+                  <button
+                    onClick={() => setEditMode('draw')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editMode === 'draw' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                  >
+                    涂鸦
+                  </button>
                 </div>
 
                 <div className="w-px h-8 bg-slate-300"></div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-600 font-medium">翻转:</span>
-                  <button
-                    onClick={() => setEditState(prev => ({ ...prev, flipH: !prev.flipH }))}
-                    className={`p-2 rounded-lg transition-colors ${editState.flipH ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                    title="水平翻转"
-                  >
-                    <FlipHorizontal size={18} />
-                  </button>
-                  <button
-                    onClick={() => setEditState(prev => ({ ...prev, flipV: !prev.flipV }))}
-                    className={`p-2 rounded-lg transition-colors ${editState.flipV ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
-                    title="垂直翻转"
-                  >
-                    <FlipVertical size={18} />
-                  </button>
-                </div>
+                {/* Drawing Tools - only show in draw mode */}
+                {editMode === 'draw' && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setCurrentTool('pen')} className={`p-2 rounded-lg transition-colors ${currentTool === 'pen' ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="画笔"><PenTool size={18} /></button>
+                      <button onClick={() => setCurrentTool('arrow')} className={`p-2 rounded-lg transition-colors ${currentTool === 'arrow' ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="箭头"><Move size={18} /></button>
+                      <button onClick={() => setCurrentTool('rect')} className={`p-2 rounded-lg transition-colors ${currentTool === 'rect' ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="矩形"><Square size={18} /></button>
+                      <button onClick={() => setCurrentTool('circle')} className={`p-2 rounded-lg transition-colors ${currentTool === 'circle' ? 'bg-blue-100 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="圆形"><CircleIcon size={18} /></button>
+                    </div>
+
+                    <div className="w-px h-8 bg-slate-300"></div>
+
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={currentColor} onChange={(e) => setCurrentColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer" title="颜色" />
+                      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+                        {[2, 4, 6, 8].map(w => (
+                          <button key={w} onClick={() => setLineWidth(w)} className={`w-6 h-6 rounded flex items-center justify-center ${lineWidth === w ? 'bg-white shadow-sm' : 'hover:bg-slate-200'}`} title={`${w}px`}>
+                            <div className="rounded-full bg-slate-800" style={{ width: w, height: w }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="w-px h-8 bg-slate-300"></div>
+
+                    <button onClick={() => setDrawings(prev => prev.slice(0, -1))} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 disabled:opacity-50" disabled={drawings.length === 0} title="撤销">
+                      <Undo size={18} />
+                    </button>
+                  </>
+                )}
+
+                {/* Transform Tools - only show in transform mode */}
+                {editMode === 'transform' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 font-medium">旋转:</span>
+                      <button
+                        onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
+                        className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        title="向左旋转90°"
+                      >
+                        <RotateCcw size={18} />
+                      </button>
+                      <button
+                        onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
+                        className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+                        title="向右旋转90°"
+                      >
+                        <RotateCw size={18} />
+                      </button>
+                      <span className="text-sm text-slate-500 ml-2">{editState.rotation}°</span>
+                    </div>
+
+                    <div className="w-px h-8 bg-slate-300"></div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 font-medium">翻转:</span>
+                      <button
+                        onClick={() => setEditState(prev => ({ ...prev, flipH: !prev.flipH }))}
+                        className={`p-2 rounded-lg transition-colors ${editState.flipH ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                        title="水平翻转"
+                      >
+                        <FlipHorizontal size={18} />
+                      </button>
+                      <button
+                        onClick={() => setEditState(prev => ({ ...prev, flipV: !prev.flipV }))}
+                        className={`p-2 rounded-lg transition-colors ${editState.flipV ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                        title="垂直翻转"
+                      >
+                        <FlipVertical size={18} />
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* Crop Info - only show in crop mode when crop is active */}
+                {editMode === 'crop' && completedCrop && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600">
+                      尺寸: {Math.round(completedCrop.width)} × {Math.round(completedCrop.height)} px
+                    </span>
+                    <button
+                      onClick={() => { setCrop(undefined); setCompletedCrop(undefined); }}
+                      className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    >
+                      重置
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Editor Canvas */}
               <div className="flex-1 flex items-center justify-center p-8 overflow-auto bg-slate-50">
-                <div
-                  className="relative"
-                  style={{
-                    transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
-                    transition: 'transform 0.3s ease',
-                  }}
-                >
-                  <img
-                    ref={imgRef}
-                    src={editingImage.preview}
-                    alt={editingImage.name}
-                    className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-lg"
-                  />
-                </div>
+                {editMode !== 'crop' ? (
+                  <div
+                    className="relative"
+                    style={{
+                      transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
+                      transition: 'transform 0.3s ease',
+                    }}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={editingImage.preview}
+                      alt={editingImage.name}
+                      className="max-w-full max-h-[60vh] object-contain shadow-lg rounded-lg"
+                    />
+                    {/* Drawing Canvas Overlay */}
+                    {editMode === 'draw' && (
+                      <canvas
+                        ref={canvasRef}
+                        className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseLeave={stopDrawing}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c) => setCrop(c)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                  >
+                    <img
+                      src={editingImage.preview}
+                      alt={editingImage.name}
+                      className="max-h-[60vh] shadow-lg"
+                    />
+                  </ReactCrop>
+                )}
               </div>
             </div>
           </div>
