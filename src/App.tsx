@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload, X, Clock, Download, Plus, ZoomIn, ZoomOut,
   Trash2, Image as ImageIcon, Palette, Type, ChevronDown, Save,
-  AlignLeft, AlignCenter, AlignRight//, Crop as CropIcon, RotateCw, RotateCcw,
-  //FlipHorizontal, FlipVertical, PenTool, Square, Circle as CircleIcon, Move, Undo
+  AlignLeft, AlignCenter, AlignRight, Crop as CropIcon, RotateCw, RotateCcw,
+  FlipHorizontal, FlipVertical//, PenTool, Square, Circle as CircleIcon, Move, Undo
 } from 'lucide-react';
-//import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
-//import 'react-image-crop/dist/ReactCrop.css';
+// import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+// import 'react-image-crop/dist/ReactCrop.css';
 import type { ImageFile, WatermarkConfig/*, Drawing, DrawingTool*/ } from './types';
 import { processImageFile } from './utils/imageProcessor';
 import { generateWatermarkedImage } from './utils/watermarkGenerator';
@@ -228,6 +228,19 @@ export default function WatermarkApp() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Image editing state
+  const [editingImageId, setEditingImageId] = useState<number | null>(null);
+  const [editState, setEditState] = useState<{
+    rotation: number;
+    flipH: boolean;
+    flipV: boolean;
+  }>({
+    rotation: 0,
+    flipH: false,
+    flipV: false,
+  });
 
   const [config, setConfig] = useState<WatermarkConfig>({
     area: '二期工程-基坑A区',
@@ -442,6 +455,43 @@ export default function WatermarkApp() {
     );
   };
 
+  // Image editing functions
+  const startEditing = (id: number) => {
+    const img = images.find(i => i.id === id);
+    if (!img) return;
+    setEditingImageId(id);
+    setEditState({
+      rotation: img.edits?.rotation || 0,
+      flipH: img.edits?.flipH || false,
+      flipV: img.edits?.flipV || false,
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingImageId(null);
+    setEditState({ rotation: 0, flipH: false, flipV: false });
+  };
+
+  const saveEdits = () => {
+    if (editingImageId === null) return;
+    setImages(prev => prev.map(img => {
+      if (img.id === editingImageId) {
+        return {
+          ...img,
+          edits: {
+            rotation: editState.rotation,
+            flipH: editState.flipH,
+            flipV: editState.flipV,
+            drawings: img.edits?.drawings || [],
+          }
+        };
+      }
+      return img;
+    }));
+    setEditingImageId(null);
+    showToast('编辑已保存');
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -526,6 +576,98 @@ export default function WatermarkApp() {
         </div>
       )}
 
+      {/* Image Editor Modal */}
+      {editingImageId !== null && (() => {
+        const editingImage = images.find(img => img.id === editingImageId);
+        if (!editingImage) return null;
+
+        return (
+          <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
+            {/* Editor Header */}
+            <div className="h-16 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-6 shrink-0">
+              <h2 className="text-lg font-bold text-white">编辑图片</h2>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelEditing}
+                  className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-medium transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={saveEdits}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  保存
+                </button>
+              </div>
+            </div>
+
+            {/* Editor Toolbar */}
+            <div className="h-16 bg-slate-800 border-b border-slate-700 flex items-center px-6 gap-6 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400 font-medium">旋转:</span>
+                <button
+                  onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation - 90 + 360) % 360 }))}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                  title="向左旋转90°"
+                >
+                  <RotateCcw size={18} />
+                </button>
+                <button
+                  onClick={() => setEditState(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }))}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                  title="向右旋转90°"
+                >
+                  <RotateCw size={18} />
+                </button>
+                <span className="text-sm text-slate-300 ml-2">{editState.rotation}°</span>
+              </div>
+
+              <div className="w-px h-8 bg-slate-700"></div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400 font-medium">翻转:</span>
+                <button
+                  onClick={() => setEditState(prev => ({ ...prev, flipH: !prev.flipH }))}
+                  className={`p-2 rounded-lg transition-colors ${editState.flipH ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                  title="水平翻转"
+                >
+                  <FlipHorizontal size={18} />
+                </button>
+                <button
+                  onClick={() => setEditState(prev => ({ ...prev, flipV: !prev.flipV }))}
+                  className={`p-2 rounded-lg transition-colors ${editState.flipV ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                  title="垂直翻转"
+                >
+                  <FlipVertical size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Editor Canvas */}
+            <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
+              <div
+                className="relative"
+                style={{
+                  transform: `rotate(${editState.rotation}deg) scaleX(${editState.flipH ? -1 : 1}) scaleY(${editState.flipV ? -1 : 1})`,
+                  transition: 'transform 0.3s ease',
+                  maxWidth: '90%',
+                  maxHeight: '90%',
+                }}
+              >
+                <img
+                  ref={imgRef}
+                  src={editingImage.preview}
+                  alt={editingImage.name}
+                  className="max-w-full max-h-full object-contain shadow-2xl"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
 
       {/* 顶部署名 - 融入式设计 */}
@@ -606,6 +748,16 @@ export default function WatermarkApp() {
                       <Clock size={11} /> {img.exif.dateTime?.split(' ')[1] || '--:--'}
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEditing(img.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-blue-50 rounded-lg transition-all"
+                    title="编辑图片"
+                  >
+                    <CropIcon size={16} className="text-blue-600" />
+                  </button>
                 </div>
               ))
             )}
