@@ -18,10 +18,33 @@ import { ALL_FONTS, loadFont } from './utils/fontLoader';
 
 
 const timeFormats = [
+  // Standard (Minutes)
+  { label: '2025.11.29 14:30', value: 'YYYY.MM.DD HH:mm' },
+  { label: '2025-11-29 14:30', value: 'YYYY-MM-DD HH:mm' },
+  { label: '2025/11/29 14:30', value: 'YYYY/MM/DD HH:mm' },
+  { label: '2025年11月29日 14:30', value: 'YYYY年MM月DD日 HH:mm' },
+
+  // Standard (Seconds)
   { label: '2025.11.29 14:30:00', value: 'YYYY.MM.DD HH:mm:ss' },
   { label: '2025-11-29 14:30:00', value: 'YYYY-MM-DD HH:mm:ss' },
-  { label: '2025-11-29 14:30', value: 'YYYY-MM-DD HH:mm' },
-  { label: '2025年11月29日 14:30', value: 'YYYY年MM月DD日 HH:mm' },
+  { label: '2025/11/29 14:30:00', value: 'YYYY/MM/DD HH:mm:ss' },
+  { label: '2025年11月29日 14:30:00', value: 'YYYY年MM月DD日 HH:mm:ss' },
+
+  // Short Date (Minutes)
+  { label: '11.29 14:30', value: 'MM.DD HH:mm' },
+  { label: '11-29 14:30', value: 'MM-DD HH:mm' },
+  { label: '11/29 14:30', value: 'MM/DD HH:mm' },
+  { label: '11月29日 14:30', value: 'MM月DD日 HH:mm' },
+
+  // Date Only
+  { label: '2025.11.29', value: 'YYYY.MM.DD' },
+  { label: '2025-11-29', value: 'YYYY-MM-DD' },
+  { label: '2025/11/29', value: 'YYYY/MM/DD' },
+  { label: '2025年11月29日', value: 'YYYY年MM月DD日' },
+
+  // Time Only
+  { label: '14:30', value: 'HH:mm' },
+  { label: '14:30:00', value: 'HH:mm:ss' },
 ];
 
 // 默认预设
@@ -419,28 +442,36 @@ export default function WatermarkApp() {
 
   const getDisplayTime = (image: ImageFile | null = selectedImage): string => {
     let raw = config.useExifTime ? (image?.exif.dateTime || '无EXIF数据') : config.customTime;
-    if (config.timeFormat === 'YYYY-MM-DD HH:mm') {
-      const parts = raw.split(' ');
-      if (parts.length === 2) {
-        const datePart = parts[0].replace(/:/g, '-');
-        const timePart = parts[1].split(':').slice(0, 2).join(':');
-        return `${datePart} ${timePart}`;
-      }
-      return raw.substring(0, 16).replace(/:/g, '-');
-    }
-    if (config.timeFormat.includes('年')) {
-      const parts = raw.split(' ');
-      if (parts.length === 2) {
-        const date = parts[0].replace(/:/g, '-');
-        const [y, m, d] = date.split('-');
-        const time = parts[1].substring(0, 5);
-        return `${y}年${m}月${d}日 ${time}`;
-      }
-      return raw;
-    }
-    if (config.timeFormat.includes('-')) return raw.replace(/:/g, '-');
-    if (config.timeFormat.includes('HH')) return raw.split(' ')[1] || raw;
-    return raw.replace(/:/g, '.');
+
+    // Handle "No EXIF Data" case
+    if (raw === '无EXIF数据') return raw;
+
+    // Parse the raw time string into components
+    // Expected inputs: "YYYY:MM:DD HH:mm:ss" (EXIF) or "YYYY-MM-DD HH:mm:ss" (Custom)
+    // We normalize separators to spaces or dashes to split easily
+    const normalized = raw.replace(/[:/.]/g, '-').replace(' ', '-');
+    const parts = normalized.split('-');
+
+    // Ensure we have at least YMD
+    if (parts.length < 3) return raw;
+
+    const Y = parts[0];
+    const M = parts[1];
+    const D = parts[2];
+    const h = parts[3] || '00';
+    const m = parts[4] || '00';
+    const s = parts[5] || '00';
+
+    // Format based on config.timeFormat
+    let format = config.timeFormat;
+
+    return format
+      .replace('YYYY', Y)
+      .replace('MM', M)
+      .replace('DD', D)
+      .replace('HH', h)
+      .replace('mm', m)
+      .replace('ss', s);
   };
 
   const toggleCheck = (id: number) => {
