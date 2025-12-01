@@ -13,14 +13,9 @@ import { generateWatermarkedImage } from './utils/watermarkGenerator';
 import { downloadBlob, delay } from './utils/exportHelper';
 import { sanitizeFilename } from './utils/renameHelper';
 import { applyImageEdits } from './utils/imageEditor';
+import { ALL_FONTS, loadFont } from './utils/fontLoader';
 
-const fontOptions = [
-  { label: '思源黑体', value: '"Noto Sans SC", sans-serif' },
-  { label: '宋体', value: 'SimSun, serif' },
-  { label: '仿宋', value: 'FangSong, serif' },
-  { label: '楷体', value: 'KaiTi, serif' },
-  { label: '微软雅黑', value: '"Microsoft YaHei", sans-serif' },
-];
+
 
 const timeFormats = [
   { label: '2025.11.29 14:30:00', value: 'YYYY.MM.DD HH:mm:ss' },
@@ -293,6 +288,14 @@ export default function WatermarkApp() {
       console.error('Failed to load presets:', error);
     }
   }, []);
+
+  // Load font when it changes
+  useEffect(() => {
+    const font = ALL_FONTS.find(f => f.value === config.fontFamily);
+    if (font && 'url' in font) {
+      loadFont(font.value, (font as any).url);
+    }
+  }, [config.fontFamily]);
 
   // 保存预设到 localStorage
   const savePresetsToStorage = (areas: string[], contents: string[]) => {
@@ -1258,7 +1261,7 @@ export default function WatermarkApp() {
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">字体</label>
                     <select value={config.fontFamily} onChange={e => setConfig({ ...config, fontFamily: e.target.value })} className="select-modern text-sm">
-                      {fontOptions.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                      {ALL_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                   </div>
                   <div>
