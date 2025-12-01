@@ -1,9 +1,9 @@
-import type { ImageFile } from '../types';
+import type { ImageFile, WatermarkConfig } from '../types';
 import { readExifData } from './exifReader';
 
 let imageIdCounter = 1;
 
-export const processImageFile = async (file: File): Promise<ImageFile> => {
+export const processImageFile = async (file: File, defaultConfig?: WatermarkConfig): Promise<ImageFile> => {
     // 读取EXIF数据
     const exif = await readExifData(file);
 
@@ -13,6 +13,28 @@ export const processImageFile = async (file: File): Promise<ImageFile> => {
     // 获取图片尺寸
     const dimensions = await getImageDimensions(preview);
 
+    // 默认配置 (如果未提供)
+    const config: WatermarkConfig = defaultConfig || {
+        area: '',
+        content: '',
+        useExifTime: true,
+        customTime: '',
+        timeFormat: 'YYYY.MM.DD HH:mm:ss',
+        logo: null,
+        customItems: [],
+        fontFamily: '"Noto Sans SC", sans-serif',
+        fontSize: 24,
+        fontColor: '#FFFFFF',
+        textShadow: true,
+        position: 'bottom-left',
+        textAlign: 'left',
+        scale: 1.0,
+        marginX: 30,
+        marginY: 30,
+        exportFormat: 'jpeg',
+        exportQuality: 0.92,
+    };
+
     return {
         id: imageIdCounter++,
         file,
@@ -21,6 +43,7 @@ export const processImageFile = async (file: File): Promise<ImageFile> => {
         width: dimensions.width,
         height: dimensions.height,
         exif,
+        config: JSON.parse(JSON.stringify(config)), // Deep copy to avoid reference issues
     };
 };
 

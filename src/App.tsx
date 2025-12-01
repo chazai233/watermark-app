@@ -294,6 +294,29 @@ export default function WatermarkApp() {
     exportQuality: 0.92,
   });
 
+  // Sync UI config with selected image
+  useEffect(() => {
+    const img = images.find(i => i.id === selectedId);
+    if (img) {
+      setConfig(img.config);
+    }
+  }, [selectedId]);
+
+  // Helper to update config for selected/checked images
+  const updateConfig = (updates: Partial<WatermarkConfig>) => {
+    const newConfig = { ...config, ...updates };
+    setConfig(newConfig);
+
+    setImages(prev => prev.map(img => {
+      // Update if checked OR if it's the currently selected image
+      // (Ensures the image you are looking at always reflects the changes)
+      if (checkedIds.has(img.id) || img.id === selectedId) {
+        return { ...img, config: { ...img.config, ...updates } };
+      }
+      return img;
+    }));
+  };
+
   // 预设管理
   const [areaPresets, setAreaPresets] = useState<string[]>(DEFAULT_AREA_PRESETS);
   const [contentPresets, setContentPresets] = useState<string[]>(DEFAULT_CONTENT_PRESETS);
@@ -394,7 +417,8 @@ export default function WatermarkApp() {
     for (let i = 0; i < files.length; i++) {
       setUploadProgress({ current: i + 1, total: files.length });
       try {
-        const imageFile = await processImageFile(files[i]);
+        // Pass current config as default for new images
+        const imageFile = await processImageFile(files[i], config);
         newImages.push(imageFile);
       } catch (error) {
         console.error('Failed to process', files[i].name, error);
@@ -424,7 +448,8 @@ export default function WatermarkApp() {
     for (let i = 0; i < files.length; i++) {
       setUploadProgress({ current: i + 1, total: files.length });
       try {
-        const imageFile = await processImageFile(files[i]);
+        // Pass current config as default for new images
+        const imageFile = await processImageFile(files[i], config);
         newImages.push(imageFile);
       } catch (error) {
         console.error('Failed to process', files[i].name, error);
@@ -752,7 +777,7 @@ export default function WatermarkApp() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => setConfig({ ...config, logo: e.target?.result as string });
+    reader.onload = (e) => updateConfig({ logo: e.target?.result as string });
     reader.readAsDataURL(file);
   };
 
@@ -766,7 +791,7 @@ export default function WatermarkApp() {
       for (let i = 0; i < imagesToExport.length; i++) {
         const image = imagesToExport[i];
         const displayTime = getDisplayTime(image);
-        const blob = await generateWatermarkedImage(image, config, displayTime);
+        const blob = await generateWatermarkedImage(image, image.config, displayTime);
         let nameWithoutExt = image.name.replace(/\.[^/.]+$/, '');
         if (!nameWithoutExt || nameWithoutExt.trim() === '') {
           nameWithoutExt = `image_${i + 1}`;
@@ -1220,7 +1245,7 @@ export default function WatermarkApp() {
           <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100 shrink-0">
             <h2 className="text-lg font-bold text-slate-900">水印设置</h2>
             <button
-              onClick={() => setConfig({ ...config, scale: 1.0, marginX: 30, marginY: 30 })}
+              onClick={() => updateConfig({ scale: 1.0, marginX: 30, marginY: 30 })}
               className="text-xs font-medium text-blue-600 hover:text-blue-700"
             >
               重置
@@ -1248,7 +1273,7 @@ export default function WatermarkApp() {
                   max="2.0"
                   step="0.1"
                   value={config.scale}
-                  onChange={e => setConfig({ ...config, scale: parseFloat(e.target.value) })}
+                  onChange={e => updateConfig({ scale: parseFloat(e.target.value) })}
                 />
               </div>
 
@@ -1263,7 +1288,7 @@ export default function WatermarkApp() {
                   min="0"
                   max="300"
                   value={config.marginX}
-                  onChange={e => setConfig({ ...config, marginX: parseInt(e.target.value), marginY: parseInt(e.target.value) })}
+                  onChange={e => updateConfig({ marginX: parseInt(e.target.value), marginY: parseInt(e.target.value) })}
                 />
               </div>
 
@@ -1274,7 +1299,7 @@ export default function WatermarkApp() {
                   {['top-left', 'top-center', 'top-right', 'center-left', 'center', 'center-right', 'bottom-left', 'bottom-center', 'bottom-right'].map(pos => (
                     <button
                       key={pos}
-                      onClick={() => setConfig({ ...config, position: pos })}
+                      onClick={() => updateConfig({ position: pos })}
                       className={`h-10 rounded-lg border-2 transition-all flex items-center justify-center ${config.position === pos
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -1291,7 +1316,7 @@ export default function WatermarkApp() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">字体</label>
-                    <select value={config.fontFamily} onChange={e => setConfig({ ...config, fontFamily: e.target.value })} className="select-modern text-sm">
+                    <select value={config.fontFamily} onChange={e => updateConfig({ fontFamily: e.target.value })} className="select-modern text-sm">
                       {ALL_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
                   </div>
@@ -1305,7 +1330,7 @@ export default function WatermarkApp() {
                       ].map(align => (
                         <button
                           key={align.value}
-                          onClick={() => setConfig({ ...config, textAlign: align.value as any })}
+                          onClick={() => updateConfig({ textAlign: align.value as any })}
                           className={`flex-1 h-8 rounded flex items-center justify-center transition-all ${config.textAlign === align.value ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
                         >
                           {align.icon}
@@ -1321,7 +1346,7 @@ export default function WatermarkApp() {
                     {['#FFFFFF', '#000000', '#FF0000', '#FFFF00', '#0000FF'].map(color => (
                       <button
                         key={color}
-                        onClick={() => setConfig({ ...config, fontColor: color })}
+                        onClick={() => updateConfig({ fontColor: color })}
                         className={`w-6 h-6 rounded-full border border-slate-200 shadow-sm ${config.fontColor === color ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
                         style={{ backgroundColor: color }}
                       />
@@ -1331,7 +1356,7 @@ export default function WatermarkApp() {
                     <input
                       type="color"
                       value={config.fontColor}
-                      onChange={e => setConfig({ ...config, fontColor: e.target.value })}
+                      onChange={e => updateConfig({ fontColor: e.target.value })}
                       className="absolute opacity-0 w-full h-full cursor-pointer"
                     />
                     <div className="input-modern flex items-center gap-2 cursor-pointer">
@@ -1387,7 +1412,7 @@ export default function WatermarkApp() {
                 <label className="text-sm font-medium text-slate-700 mb-2 block">施工区域</label>
                 <PresetSelector
                   value={config.area}
-                  onChange={value => setConfig({ ...config, area: value })}
+                  onChange={value => updateConfig({ area: value })}
                   presets={areaPresets}
                   onSavePreset={addAreaPreset}
                   onDeletePreset={deleteAreaPreset}
@@ -1400,7 +1425,7 @@ export default function WatermarkApp() {
                 <label className="text-sm font-medium text-slate-700 mb-2 block">施工内容</label>
                 <PresetSelector
                   value={config.content}
-                  onChange={value => setConfig({ ...config, content: value })}
+                  onChange={value => updateConfig({ content: value })}
                   presets={contentPresets}
                   onSavePreset={addContentPreset}
                   onDeletePreset={deleteContentPreset}
@@ -1417,7 +1442,7 @@ export default function WatermarkApp() {
                     <input
                       type="checkbox"
                       checked={config.useExifTime}
-                      onChange={e => setConfig({ ...config, useExifTime: e.target.checked })}
+                      onChange={e => updateConfig({ useExifTime: e.target.checked })}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                     <span className="text-xs text-slate-500">使用原图时间</span>
@@ -1425,7 +1450,7 @@ export default function WatermarkApp() {
                 </div>
                 <select
                   value={config.timeFormat}
-                  onChange={e => setConfig({ ...config, timeFormat: e.target.value })}
+                  onChange={e => updateConfig({ timeFormat: e.target.value })}
                   className="select-modern text-sm mb-2"
                 >
                   {timeFormats.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -1433,8 +1458,7 @@ export default function WatermarkApp() {
                 <input
                   type={config.timeFormat.includes('HH:mm:ss') ? 'datetime-local' : 'datetime-local'}
                   value={formatTimeForInput(config.customTime)}
-                  onChange={e => setConfig({
-                    ...config,
+                  onChange={e => updateConfig({
                     customTime: formatTimeFromInput(e.target.value, config.timeFormat),
                     useExifTime: false // 修改时间时自动关闭EXIF时间
                   })}
@@ -1456,7 +1480,7 @@ export default function WatermarkApp() {
                 <label className="text-sm font-medium text-slate-700 mb-2 block">图片格式</label>
                 <select
                   value={config.exportFormat}
-                  onChange={e => setConfig({ ...config, exportFormat: e.target.value as any })}
+                  onChange={e => updateConfig({ exportFormat: e.target.value as any })}
                   className="select-modern text-sm"
                 >
                   <option value="jpeg">JPEG (更小文件)</option>
@@ -1477,7 +1501,7 @@ export default function WatermarkApp() {
                   max="1.0"
                   step="0.05"
                   value={config.exportQuality}
-                  onChange={e => setConfig({ ...config, exportQuality: parseFloat(e.target.value) })}
+                  onChange={e => updateConfig({ exportQuality: parseFloat(e.target.value) })}
                 />
                 <div className="flex justify-between text-xs text-slate-500 mt-1">
                   <span>较小文件</span>

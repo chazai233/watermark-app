@@ -46,6 +46,7 @@ export interface ImageFile {
     exif: ExifData;
     edits?: ImageEditState;  // 编辑状态
     originalPreview?: string; // 原始图片预览（用于编辑回退）
+    config: WatermarkConfig; // 每个图片独立的配置
 }
 
 export interface CustomItem {
